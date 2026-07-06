@@ -1,0 +1,20 @@
+[
+    {
+        "id": "20260706_133143_764",
+        "filename": "20260706_133143_00001.jpg",
+        "filepath": "static/uploads/20260706_133143_00001.jpg",
+        "result": "Tidak Retak",
+        "confidence": 99.97,
+        "processing_time": 0.9741,
+        "timestamp": "06-07-2026 13:31:44"
+    },
+    {
+        "id": "20260706_132728_769",
+        "filename": "20260706_132728_00001.jpg",
+        "filepath": "static/uploads/20260706_132728_00001.jpg",
+        "result": "Tidak Retak",
+        "confidence": 99.97,
+        "processing_time": 23.5932,
+        "timestamp": "06-07-2026 13:27:52"
+    }
+]

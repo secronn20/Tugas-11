@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Riwayat Deteksi - VGG16 Transfer Learning</title>
+    <!-- Bootstrap 5.3 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet">
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+
+    <!-- Navigation Bar -->
+    <nav class="navbar navbar-expand-lg navbar-custom navbar-dark sticky-top">
+        <div class="container">
+            <a class="navbar-brand d-flex align-items-center" href="/">
+                <i class="bi bi-shield-fill-exclamation text-info me-2 fs-4"></i>
+                <span class="navbar-brand-text">RoadCrack AI</span>
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="/"><i class="bi bi-cpu-fill me-1"></i> Deteksi</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link active" href="/history"><i class="bi bi-clock-history me-1"></i> Riwayat</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="container py-5">
+        <!-- Header -->
+        <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-5 gap-3">
+            <div>
+                <h1 class="h2 fw-bold text-white mb-1">Riwayat Analisis Kondisi Jalan</h1>
+                <p class="text-secondary mb-0">Melihat daftar gambar jalan yang diunggah beserta hasil prediksi AI sebelumnya.</p>
+            </div>
+            
+            {% if records %}
+            <form action="/clear-history" method="POST" onsubmit="return confirm('Apakah Anda yakin ingin menghapus semua riwayat analisis? Semua file gambar yang diunggah juga akan dihapus.');">
+                <button type="submit" class="btn btn-danger rounded-pill px-4 btn-sm">
+                    <i class="bi bi-trash-fill me-1"></i> Hapus Semua Riwayat
+                </button>
+            </form>
+            {% endif %}
+        </div>
+
+        {% if not records %}
+        <!-- Empty State -->
+        <div class="glass-card text-center p-5">
+            <div class="py-5">
+                <i class="bi bi-folder-x fs-1 text-secondary mb-4 opacity-50"></i>
+                <h4 class="text-white fw-bold">Belum Ada Riwayat Analisis</h4>
+                <p class="text-secondary mx-auto mb-4" style="max-width: 450px;">
+                    Anda belum mengunggah gambar apa pun untuk dianalisis oleh model. Kembali ke menu utama untuk mulai mendeteksi keretakan jalan.
+                </p>
+                <a href="/" class="btn btn-premium rounded-pill px-4">
+                    <i class="bi bi-arrow-left me-1"></i> Mulai Deteksi
+                </a>
+            </div>
+        </div>
+        {% else %}
+        <!-- History Table List -->
+        <div class="glass-card overflow-hidden">
+            <div class="table-responsive">
+                <table class="table history-table mb-0 text-white" style="background: transparent;">
+                    <thead>
+                        <tr>
+                            <th scope="col" style="width: 100px;">Gambar</th>
+                            <th scope="col">Nama File</th>
+                            <th scope="col">Waktu Prediksi</th>
+                            <th scope="col">Hasil Deteksi</th>
+                            <th scope="col">Kepercayaan (Confidence)</th>
+                            <th scope="col">Waktu Proses</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for record in records %}
+                        <tr>
+                            <td>
+                                <a href="/{{ record.filepath }}" target="_blank">
+                                    <img src="/{{ record.filepath }}" class="history-thumbnail" alt="Analisis Gambar">
+                                </a>
+                            </td>
+                            <td>
+                                <div class="text-white fw-semibold small text-truncate" style="max-width: 200px;" title="{{ record.filename }}">
+                                    {{ record.filename.split('_', 2)[-1] if '_' in record.filename else record.filename }}
+                                </div>
+                            </td>
+                            <td class="small text-secondary">{{ record.timestamp }}</td>
+                            <td>
+                                {% if record.result == 'Retak' %}
+                                <span class="status-badge status-positive">Retak</span>
+                                {% else %}
+                                <span class="status-badge status-negative">Tidak Retak</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div class="d-flex align-items-center gap-2">
+                                    <span class="fw-bold">{{ record.confidence }}%</span>
+                                    <div class="progress progress-custom flex-grow-1 d-none d-sm-flex" style="width: 60px; height: 6px;">
+                                        <div class="progress-bar progress-bar-glow" role="progressbar" style="width: {{ record.confidence }}%"></div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td class="small text-secondary"><i class="bi bi-stopwatch me-1"></i>{{ record.processing_time }}s</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Footer -->
+    <footer class="bg-black bg-opacity-40 text-secondary text-center py-4 mt-5 border-top border-secondary border-opacity-10">
+        <div class="container">
+            <p class="mb-1 small">&copy; 2026 Tugas 11 Kecerdasan Buatan - Penerapan Transfer Learning VGG16</p>
+            <p class="mb-0 small text-secondary-50">Dibuat menggunakan Flask & TensorFlow</p>
+        </div>
+    </footer>
+
+    <!-- Bootstrap 5 JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

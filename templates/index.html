@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistem Deteksi Retak Jalan - VGG16 Transfer Learning</title>
+    <!-- Bootstrap 5.3 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" rel="stylesheet">
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+
+    <!-- Navigation Bar -->
+    <nav class="navbar navbar-expand-lg navbar-custom navbar-dark sticky-top">
+        <div class="container">
+            <a class="navbar-brand d-flex align-items-center" href="/">
+                <i class="bi bi-shield-fill-exclamation text-info me-2 fs-4"></i>
+                <span class="navbar-brand-text">RoadCrack AI</span>
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <a class="nav-link active" href="/"><i class="bi bi-cpu-fill me-1"></i> Deteksi</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/history"><i class="bi bi-clock-history me-1"></i> Riwayat</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="container py-5">
+        <!-- Hero Section -->
+        <div class="text-center mb-5">
+            <h1 class="display-5 fw-bold text-transparent bg-clip-text text-white">Klasifikasi Kondisi Jalan</h1>
+            <p class="lead text-secondary mx-auto" style="max-width: 700px;">
+                Mendeteksi keretakan pada permukaan jalan raya secara instan menggunakan teknologi <span class="text-info fw-semibold">Transfer Learning</span> dengan arsitektur pre-trained <span class="text-info fw-semibold">VGG16</span>.
+            </p>
+            <hr class="border-secondary opacity-25 w-25 mx-auto">
+        </div>
+
+        {% if not model_loaded %}
+        <!-- Model Warning Alert -->
+        <div class="alert alert-warning border-warning border-opacity-25 bg-dark bg-opacity-50 text-warning rounded-4 p-4 mb-5 glass-card" role="alert">
+            <div class="d-flex align-items-start">
+                <i class="bi bi-exclamation-triangle-fill fs-3 me-3 text-warning"></i>
+                <div>
+                    <h5 class="alert-heading fw-bold">Model VGG16 Belum Siap!</h5>
+                    <p class="mb-2">File model <code>model/road_crack_vgg16.h5</code> tidak ditemukan. Anda harus menjalankan script pelatihan model terlebih dahulu di server/terminal:</p>
+                    <code class="bg-black bg-opacity-50 text-info p-2 rounded d-inline-block border border-secondary border-opacity-25">python train_model.py</code>
+                    <p class="mt-2 mb-0 text-secondary fs-7"><i class="bi bi-info-circle me-1"></i> Script akan mengambil sampel dataset, membangun convolutional layer VGG16 (ImageNet), dan melatih classifier baru.</p>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <div class="row g-4 justify-content-center">
+            <!-- Left Side: Interactive Uploader -->
+            <div class="col-lg-6">
+                <div class="glass-card p-4 h-100">
+                    <h3 class="card-title h5 mb-3 text-white d-flex align-items-center">
+                        <i class="bi bi-cloud-arrow-up text-primary me-2"></i> Unggah Gambar Jalan
+                    </h3>
+                    <p class="text-secondary small mb-4">
+                        Seret dan lepas gambar ke area di bawah atau klik tombol pilih file. Gunakan gambar berformat JPG, JPEG, atau PNG.
+                    </p>
+                    
+                    <div id="dropzone" class="dropzone-container mb-4">
+                        <div id="upload-prompt">
+                            <i class="bi bi-image dropzone-icon"></i>
+                            <h5 class="text-white fw-bold mb-1">Seret & Lepas Gambar</h5>
+                            <p class="text-secondary small mb-3">atau</p>
+                            <button class="btn btn-outline-custom btn-sm" id="select-btn" type="button">
+                                <i class="bi bi-folder2-open me-1"></i> Pilih File
+                            </button>
+                        </div>
+                        <input type="file" id="file-input" accept=".jpg,.jpeg,.png">
+                        
+                        <div id="preview-container" class="d-none text-center">
+                            <img src="" id="preview-image" class="preview-image img-fluid mb-3" alt="Pratinjau Gambar">
+                            <div class="d-flex justify-content-center gap-2">
+                                <button type="button" class="btn btn-danger btn-sm rounded-pill px-3" id="reset-btn" title="Hapus Gambar">
+                                    <i class="bi bi-trash-fill"></i> Hapus
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <button class="btn btn-premium w-100 py-3" id="analyze-btn" disabled>
+                        <i class="bi bi-cpu me-2"></i> ANALISIS KONDISI JALAN
+                    </button>
+                </div>
+            </div>
+
+            <!-- Right Side: Classification Results / Instructions -->
+            <div class="col-lg-6">
+                <!-- Instruction Panel (when no results yet) -->
+                <div id="instruction-panel" class="glass-card p-4 h-100 d-flex flex-column justify-content-between">
+                    <div>
+                        <h3 class="card-title h5 mb-4 text-white d-flex align-items-center">
+                            <i class="bi bi-bar-chart-steps text-info me-2"></i> Cara Kerja Sistem
+                        </h3>
+                        <div class="d-flex align-items-start mb-3">
+                            <span class="badge bg-secondary rounded-circle me-3 py-2 px-3">1</span>
+                            <div>
+                                <h6 class="text-white fw-bold mb-1">Ekstraksi Fitur VGG16</h6>
+                                <p class="text-secondary small mb-0">Model menggunakan lapisan konvolusional VGG16 yang telah dilatih pada ImageNet untuk mengenali tekstur, garis, dan pola retak.</p>
+                            </div>
+                        </div>
+                        <div class="d-flex align-items-start mb-3">
+                            <span class="badge bg-secondary rounded-circle me-3 py-2 px-3">2</span>
+                            <div>
+                                <h6 class="text-white fw-bold mb-1">Klasifikasi Kepala (Head Classifier)</h6>
+                                <p class="text-secondary small mb-0">Hasil ekstraksi fitur diteruskan ke Dense Layer 256 unit dan diakhiri dengan sigmoid output (0 = Normal, 1 = Retak).</p>
+                            </div>
+                        </div>
+                        <div class="d-flex align-items-start mb-3">
+                            <span class="badge bg-secondary rounded-circle me-3 py-2 px-3">3</span>
+                            <div>
+                                <h6 class="text-white fw-bold mb-1">Analisis Probabilitas</h6>
+                                <p class="text-secondary small mb-0">Probabilitas di atas 50% akan dikelompokkan sebagai jalan retak (rusak) dengan visualisasi tingkat kepercayaan.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="border-top border-secondary border-opacity-25 pt-3 mt-4">
+                        <div class="row g-2">
+                            <div class="col-6">
+                                <div class="metric-card">
+                                    <div class="metric-value text-info">16</div>
+                                    <div class="metric-label">Lapisan VGG16</div>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="metric-card">
+                                    <div class="metric-value text-info">224x224</div>
+                                    <div class="metric-label">Resolusi Input</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Spinner (Loading Indicator) -->
+                <div id="spinner" class="spinner-container glass-card h-100 justify-content-center align-items-center" style="display: none;">
+                    <div class="d-flex flex-column align-items-center justify-content-center h-100 py-5">
+                        <div class="spinner-glow mb-4"></div>
+                        <h5 class="text-white fw-bold">Menganalisis Gambar...</h5>
+                        <p class="text-secondary small mb-0">Proses inferensi VGG16 sedang berjalan.</p>
+                    </div>
+                </div>
+
+                <!-- Result Box -->
+                <div id="result-box" class="glass-card p-4 result-box h-100" style="display: none;">
+                    <h3 class="card-title h5 mb-4 text-white d-flex align-items-center">
+                        <i class="bi bi-clipboard-data text-success me-2"></i> Hasil Prediksi AI
+                    </h3>
+                    
+                    <div class="text-center py-3 mb-4 border-bottom border-secondary border-opacity-10">
+                        <h4 id="result-title" class="fw-bold mb-3 text-info">MENGHITUNG...</h4>
+                        <span id="result-badge" class="status-badge status-negative">Retak</span>
+                    </div>
+
+                    <div class="mb-4">
+                        <div class="d-flex justify-content-between mb-2">
+                            <span class="text-secondary fw-semibold">Tingkat Kepercayaan (Confidence)</span>
+                            <span id="confidence-value" class="text-white fw-bold">0%</span>
+                        </div>
+                        <div class="progress progress-custom">
+                            <div id="confidence-bar" class="progress-bar progress-bar-glow" role="progressbar" style="width: 0%"></div>
+                        </div>
+                    </div>
+
+                    <div class="row g-3">
+                        <div class="col-6">
+                            <div class="metric-card">
+                                <div id="processing-time" class="metric-value">0.00s</div>
+                                <div class="metric-label">Waktu Inferensi</div>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="metric-card">
+                                <div id="prediction-time" class="metric-value" style="font-size: 0.95rem; line-height: 1.5rem; word-break: break-all;">-</div>
+                                <div class="metric-label">Waktu Prediksi</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Section: VGG16 Details -->
+        <div class="glass-card p-5 mt-5">
+            <h3 class="text-white mb-4"><i class="bi bi-info-circle-fill text-info me-2"></i> Arsitektur VGG16 Transfer Learning</h3>
+            <div class="row g-4">
+                <div class="col-md-6">
+                    <p class="text-secondary">
+                        VGG16 adalah arsitektur Convolutional Neural Network (CNN) terkenal yang dikembangkan oleh Visual Geometry Group di Universitas Oxford. Model ini dilatih pada dataset <strong>ImageNet</strong> yang terdiri atas lebih dari 14 juta gambar dan 1.000 kelas objek.
+                    </p>
+                    <p class="text-secondary">
+                        Dengan menggunakan <strong>Transfer Learning (Feature Extraction)</strong>, kita membekukan 13 lapisan konvolusi bawaan VGG16 untuk mengambil pola-pola dasar (tepi, bayangan, sudut, retakan). Klasifikasi akhir kemudian diserahkan kepada fully connected layer baru yang kita latih khusus pada dataset permukaan jalan.
+                    </p>
+                </div>
+                <div class="col-md-6">
+                    <div class="p-3 bg-black bg-opacity-30 rounded-3 border border-secondary border-opacity-10 text-secondary font-monospace" style="font-size: 0.8rem;">
+                        <div>INPUT -> [224x224x3]</div>
+                        <div class="text-info">CONV3-64 (2 layers) -> POOL</div>
+                        <div class="text-info">CONV3-128 (2 layers) -> POOL</div>
+                        <div class="text-info">CONV3-256 (3 layers) -> POOL</div>
+                        <div class="text-info">CONV3-512 (3 layers) -> POOL</div>
+                        <div class="text-info">CONV3-512 (3 layers) -> POOL</div>
+                        <div class="text-warning">FLATTEN -> DENSE (256, ReLU) -> DROPOUT (0.5)</div>
+                        <div class="text-danger">DENSE (1, Sigmoid) -> OUTPUT</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="bg-black bg-opacity-40 text-secondary text-center py-4 mt-5 border-top border-secondary border-opacity-10">
+        <div class="container">
+            <p class="mb-1 small">&copy; 2026 Tugas 11 Kecerdasan Buatan - Penerapan Transfer Learning VGG16</p>
+            <p class="mb-0 small text-secondary-50">Dibuat menggunakan Flask & TensorFlow</p>
+        </div>
+    </footer>
+
+    <!-- Bootstrap 5 JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- Custom JS -->
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>
